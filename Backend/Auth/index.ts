@@ -9,7 +9,6 @@ const port: number = 3000;
 app.use(express.json());
 
 
-
 app.use(cors());
 // Connect to MongoDB
 mongoose.connect('mongodb+srv://abhashkumardas29:Abhash29@authentication.1vp14.mongodb.net/Courses', { dbName: "Courses" })
@@ -18,21 +17,23 @@ mongoose.connect('mongodb+srv://abhashkumardas29:Abhash29@authentication.1vp14.m
 
 // Define Schema
 interface USER extends Document {
+    id: number,
     username: string;
     password: string;
-    quizes: string[];
+    quizzes: string[];
 }
 
-interface QUIZ{
+export interface QUIZ{
     title: string,
     description: string,
     date: Date
 }
 
 const userSchema = new Schema<USER>({
+    //id: {type: Number, required: true, unique: true},
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    quizes: [{type: mongoose.Schema.Types.ObjectId, ref: 'Quiz'}]
+    quizzes: [{type: mongoose.Schema.Types.ObjectId, ref: 'Quiz'}]
 });
 
 const quizSchema = new Schema<QUIZ>({
@@ -62,7 +63,7 @@ app.post('/signup', async (req: Request, res: Response): Promise<void> => {
         res.status(200).json({message: "Signup successful"});
     }
     catch(error){
-        res.status(500).json({message: "Error"});
+        res.status(500).json({message: "Error", error});
     }
 })
 
@@ -75,7 +76,7 @@ app.post('/login', async (req: Request, res: Response): Promise<void> => {
             res.status(401).json({ message: 'Invalid credentials' });
             return;
         }
-        res.status(200).json({ message: 'Login successful' });
+        res.status(200).json({ message: 'Login successful', userId: user._id, username: user.username });
     } catch (error) {
         res.status(500).json({ error: 'Internal Server Error' });
     }
@@ -90,9 +91,68 @@ app.get('/user', async (req: Request, res: Response): Promise<void> => {
     }
 });
 
-//Backend for quizes
-//1. according to username/userid we have to push the quiz details i.e. title, description, date
+//Backend for quizzes
+//1. according to username/userid we have to push the quiz details i.e. title, description, date ->  Quiz
 //2. I have to enable the edit and delete functionality
+//Delete
+
+app.delete("/user/quiz", async (req: Request, res: Response): Promise<void> => {
+    try {
+        const quizId = req.headers.quizid as string;
+
+        // Validate ObjectId format
+        if (!quizId || !mongoose.isValidObjectId(quizId)) {
+            res.status(400).json({ message: "Invalid or missing quiz ID" });
+            return;
+        }
+
+        // Attempt to delete the quiz directly
+        const deletedQuiz = await Quiz.findByIdAndDelete(quizId);
+
+        if (!deletedQuiz) {
+            res.status(404).json({ message: "Quiz not found" });
+            return;
+        }
+
+        res.status(200).json({ message: "Quiz deleted successfully", deletedQuiz });
+    } catch (err) {
+        console.error("Error deleting quiz:", err);
+        res.status(500).json({ message: "Internal Server Error" });
+    }
+});
+
+
+app.put('/user/quiz', async (req: Request, res: Response): Promise<void> => {
+    try {
+        console.log("Received Headers:", req.headers); // Log headers
+        const quizId = req.headers.quizid as string;
+
+        if (!quizId || !mongoose.isValidObjectId(quizId)) {
+            res.status(400).json({ message: "Invalid or missing quiz ID" });
+            return;
+        }
+
+        const { title, description, date } = req.body;
+        const updatedQuiz = await Quiz.findByIdAndUpdate(
+            quizId,
+            { title, description, date },
+            { new: true }
+        );
+
+        if (!updatedQuiz) {
+            res.status(404).json({ message: "Quiz not found" });
+            return;
+        }
+
+        res.status(200).json({ message: "Quiz updated successfully", updatedQuiz });
+    } catch (err) {
+        console.error("Error updating quiz:", err);
+        res.status(500).json({ message: "Internal Server Error" });
+    }
+});
+
+
+
 
 app.get("/user/:id", async (req: Request, res: Response): Promise<void> => {
     try {
@@ -123,12 +183,28 @@ app.post('/user/:id', async (req: Request, res: Response) => {
         const {title, description, date} = req.body;
         const newQuiz = new Quiz({title, description, date});
         await newQuiz.save();
-        user.quizes.push(newQuiz._id.toString());
+        user.quizzes.push(newQuiz._id.toString());
         await user.save();
         res.status(200).json({message: "Quiz added successfully"});
     }
     catch(err){
         console.log("Error", err);
+    }
+});
+
+//Fetch the list of quizzes
+app.get('/user/:id/quizzes', async (req: Request, res: Response): Promise<void> => {
+    try{
+        const {id} = req.params;
+        const user = await User.findById(id).populate("quizzes");
+        if(!user){
+            res.status(404).json({message: "User not found"});
+            return;
+        }
+        res.status(200).json(user.quizzes);
+    }
+    catch(err){
+        console.log(err);
     }
 });
 

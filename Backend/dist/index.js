@@ -57,9 +57,10 @@ mongoose_1.default.connect('mongodb+srv://abhashkumardas29:Abhash29@authenticati
     .then(() => console.log('Connected to MongoDB'))
     .catch(err => console.error('MongoDB connection error:', err));
 const userSchema = new mongoose_1.Schema({
+    //id: {type: Number, required: true, unique: true},
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    quizes: [{ type: mongoose_1.default.Schema.Types.ObjectId, ref: 'Quiz' }]
+    quizzes: [{ type: mongoose_1.default.Schema.Types.ObjectId, ref: 'Quiz' }]
 });
 const quizSchema = new mongoose_1.Schema({
     title: { type: String, required: true, unique: true },
@@ -85,7 +86,7 @@ app.post('/signup', (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         res.status(200).json({ message: "Signup successful" });
     }
     catch (error) {
-        res.status(500).json({ message: "Error" });
+        res.status(500).json({ message: "Error", error });
     }
 }));
 // Login Route
@@ -97,7 +98,7 @@ app.post('/login', (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             res.status(401).json({ message: 'Invalid credentials' });
             return;
         }
-        res.status(200).json({ message: 'Login successful' });
+        res.status(200).json({ message: 'Login successful', userId: user._id, username: user.username });
     }
     catch (error) {
         res.status(500).json({ error: 'Internal Server Error' });
@@ -112,9 +113,52 @@ app.get('/user', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         res.status(500).json({ message: "Error" });
     }
 }));
-//Backend for quizes
-//1. according to username/userid we have to push the quiz details i.e. title, description, date
+//Backend for quizzes
+//1. according to username/userid we have to push the quiz details i.e. title, description, date ->  Quiz
 //2. I have to enable the edit and delete functionality
+//Delete
+app.delete("/user/quiz", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const quizId = req.headers.quizid;
+        // Validate ObjectId format
+        if (!quizId || !mongoose_1.default.isValidObjectId(quizId)) {
+            res.status(400).json({ message: "Invalid or missing quiz ID" });
+            return;
+        }
+        // Attempt to delete the quiz directly
+        const deletedQuiz = yield Quiz.findByIdAndDelete(quizId);
+        if (!deletedQuiz) {
+            res.status(404).json({ message: "Quiz not found" });
+            return;
+        }
+        res.status(200).json({ message: "Quiz deleted successfully", deletedQuiz });
+    }
+    catch (err) {
+        console.error("Error deleting quiz:", err);
+        res.status(500).json({ message: "Internal Server Error" });
+    }
+}));
+app.put('/user/quiz', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        console.log("Received Headers:", req.headers); // Log headers
+        const quizId = req.headers.quizid;
+        if (!quizId || !mongoose_1.default.isValidObjectId(quizId)) {
+            res.status(400).json({ message: "Invalid or missing quiz ID" });
+            return;
+        }
+        const { title, description, date } = req.body;
+        const updatedQuiz = yield Quiz.findByIdAndUpdate(quizId, { title, description, date }, { new: true });
+        if (!updatedQuiz) {
+            res.status(404).json({ message: "Quiz not found" });
+            return;
+        }
+        res.status(200).json({ message: "Quiz updated successfully", updatedQuiz });
+    }
+    catch (err) {
+        console.error("Error updating quiz:", err);
+        res.status(500).json({ message: "Internal Server Error" });
+    }
+}));
 app.get("/user/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
@@ -142,12 +186,27 @@ app.post('/user/:id', (req, res) => __awaiter(void 0, void 0, void 0, function* 
         const { title, description, date } = req.body;
         const newQuiz = new Quiz({ title, description, date });
         yield newQuiz.save();
-        user.quizes.push(newQuiz._id.toString());
+        user.quizzes.push(newQuiz._id.toString());
         yield user.save();
         res.status(200).json({ message: "Quiz added successfully" });
     }
     catch (err) {
         console.log("Error", err);
+    }
+}));
+//Fetch the list of quizzes
+app.get('/user/:id/quizzes', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { id } = req.params;
+        const user = yield User.findById(id).populate("quizzes");
+        if (!user) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
+        res.status(200).json(user.quizzes);
+    }
+    catch (err) {
+        console.log(err);
     }
 }));
 // Start Server

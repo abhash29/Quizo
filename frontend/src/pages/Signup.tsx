@@ -1,5 +1,4 @@
 import { Input } from "@/components/ui/input";
-import { NavLink } from "react-router-dom";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
@@ -52,12 +51,6 @@ const Signup = () => {
                     >
                         Signup
                     </button>
-
-                    <NavLink to="/login" className="w-full">
-                        <button className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-md transition duration-300">
-                            Login
-                        </button>
-                    </NavLink>
                 </div>
             </div>
         </div>

@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from "react-router-dom";
 
-import { Input } from "@/components/ui/input";
+import { Input } from "../components/ui/input";
 import axios from "axios";
 import { useState } from "react";
 
@@ -15,6 +15,8 @@ const Login = () => {
                 username,
                 password
             });
+            localStorage.setItem("username", response.data.username);
+            localStorage.setItem("userId", response.data.userId);
             console.log("login successful");
             if(response.status===200){
                 navigate('/dashboard');
